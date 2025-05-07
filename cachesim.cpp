@@ -31,37 +31,44 @@ static std::string placementToString(PlacementType p) {
 
 int main() {
     const std::string traceFile = "test.trace";
+    const std::string resultFile = "test.result";
 
+    // Open input trace
     std::ifstream in(traceFile);
     if (!in) {
         std::cerr << "Error: cannot open trace file '" << traceFile << "'\n";
         return EXIT_FAILURE;
     }
 
+    // Open output result
+    std::ofstream out(resultFile);
+    if (!out) {
+        std::cerr << "Error: cannot create result file '" << resultFile << "'\n";
+        return EXIT_FAILURE;
+    }
+
+    // Iterate over all configurations
     for (auto cs : CACHE_SIZES) {
         for (auto bs : BLOCK_SIZES) {
             for (auto pt : PLACEMENTS) {
                 for (auto const& wp : WRITE_POLICIES) {
-                    // Determine write-back flag
                     bool writeBack = (wp == "WB");
 
-                    // Instantiate cache
+                    // Reset file to beginning
+                    in.clear(); in.seekg(0, std::ios::beg);
+
                     cacheClass cache(cs, bs, writeBack, pt);
 
-                    // Reset file to beginning for each configuration
-                    in.clear();
-                    in.seekg(0, std::ios::beg);
-
-                    // Tally stats
+                    // Statistics
                     std::size_t accesses = 0, hits = 0, misses = 0;
                     std::size_t bytesToCache = 0, bytesToMem = 0;
                     std::string line;
 
+                    // Process each trace line
                     while (std::getline(in, line)) {
                         std::istringstream iss(line);
                         std::string op;
                         unsigned long addr;
-
                         if (!(iss >> op >> std::hex >> addr))
                             continue;
 
@@ -81,10 +88,10 @@ int main() {
                         }
                     }
 
-                    // Compute hit rate
+                    // Hit rate
                     double hitRate = accesses ? double(hits) / accesses : 0.0;
 
-                    // Blocks-per-set
+                    // Blocks per set
                     std::size_t bps;
                     switch (pt) {
                     case PlacementType::DM:  bps = 1;         break;
@@ -93,8 +100,8 @@ int main() {
                     case PlacementType::FA:  bps = (cs / bs); break;
                     }
 
-                    // Print results
-                    std::cout
+                    // Write one line to test.result
+                    out
                         << cs << ' '
                         << bs << ' '
                         << placementToString(pt) << ' '
